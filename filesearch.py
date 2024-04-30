@@ -94,3 +94,60 @@ with client.beta.threads.runs.stream(
     event_handler=EventHandler(),
 ) as stream:
     stream.until_done()
+
+vector_store = client.beta.vector_stores.create_and_poll(
+  name="Product Documentation",
+  file_ids=['file_1', 'file_2', 'file_3', 'file_4', 'file_5']
+)
+
+file = client.beta.vector_stores.files.create_and_poll(
+  vector_store_id="vs_abc123",
+  file_id="file-abc123"
+)
+
+batch = client.beta.vector_stores.file_batches.create_and_poll(
+  vector_store_id="vs_abc123",
+  file_ids=['file_1', 'file_2', 'file_3', 'file_4', 'file_5']
+)
+
+assistant = client.beta.assistants.create(
+  instructions="You are a helpful product support assistant and you answer questions based on the files provided to you.",
+  model="gpt-4-turbo",
+  tools=[{"type": "file_search"}],
+  tool_resources={
+    "file_search": {
+      "vector_store_ids": ["vs_1"]
+    }
+  }
+)
+
+thread = client.beta.threads.create(
+  messages=[ { "role": "user", "content": "How do I cancel my subscription?"} ],
+  tool_resources={
+    "file_search": {
+      "vector_store_ids": ["vs_2"]
+    }
+  }
+)
+
+vector_store = client.beta.vector_stores.create_and_poll(
+  name="Product Documentation",
+  file_ids=['file_1', 'file_2', 'file_3', 'file_4', 'file_5'],
+  expires_after={
+	  "anchor": "last_active_at",
+	  "days": 7
+  }
+)
+
+all_files = list(client.beta.vector_stores.files.list("vs_expired"))
+
+vector_store = client.beta.vector_stores.create(name="rag-store")
+client.beta.threads.update(
+    "thread_abc123",
+    tool_resources={"file_search": {"vector_store_ids": [vector_store.id]}},
+)
+
+for file_batch in chunked(all_files, 100):
+    client.beta.vector_stores.file_batches.create_and_poll(
+        vector_store_id=vector_store.id, file_ids=[file.id for file in file_batch]
+    )
